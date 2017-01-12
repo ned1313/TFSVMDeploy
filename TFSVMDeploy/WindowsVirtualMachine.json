@@ -43,10 +43,6 @@
               "description": "Auto-generated token to access _artifactsLocation"
           }
       },
-    "TfsAvailabilitySetName": {
-      "type": "string",
-      "minLength": 1
-    },
     "DeployLocation": {
       "type": "string",
       "defaultValue": "Azure",
@@ -87,7 +83,7 @@
     " DeployAzureStack": {
       "apiVersion": "2015-05-01-preview"
     },
-    "DeployLocation": "[concat('Deploy',parameters('DeployLocation'))]"
+    "DeployLocation": "[variables(concat('Deploy',parameters('DeployLocation')))]"
   },
   "resources": [
     {
@@ -100,7 +96,7 @@
       }
     },
     {
-      "apiVersion": "[variables('apiVersion')]",
+      "apiVersion": "[variables('DeployLocation').apiVersion]",
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[variables('publicIPAddressName')]",
       "location": "[resourceGroup().location]",
@@ -112,7 +108,7 @@
       }
     },
     {
-      "apiVersion": "[variables('apiVersion')]",
+      "apiVersion": "[variables('DeployLocation').apiVersion]",
       "type": "Microsoft.Network/virtualNetworks",
       "name": "[variables('virtualNetworkName')]",
       "location": "[resourceGroup().location]",
@@ -135,7 +131,7 @@
     {
       "type": "Microsoft.Network/networkSecurityGroups",
       "name": "[variables('TfsSecurityGroup')]",
-      "apiVersion": "[variables('apiVersion')]",
+      "apiVersion": "[variables('DeployLocation').apiVersion]",
       "location": "[resourceGroup().location]",
       "properties": {
         "securityRules": [
@@ -171,7 +167,7 @@
       "dependsOn": []
     },
     {
-      "apiVersion": "[variables('apiVersion')]",
+      "apiVersion": "[variables('DeployLocation').apiVersion]",
       "type": "Microsoft.Network/networkInterfaces",
       "name": "[variables('nicName')]",
       "location": "[resourceGroup().location]",
@@ -201,21 +197,21 @@
       }
     },
     {
-      "apiVersion": "[variables('apiVersion')]",
+      "apiVersion": "[variables('DeployLocation').apiVersion]",
       "type": "Microsoft.Compute/virtualMachines",
       "name": "[variables('vmName')]",
       "location": "[resourceGroup().location]",
       "dependsOn": [
         "[concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
         "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]",
-        "[concat('Microsoft.Compute/availabilitySets',variables('TfsAvailabilitySetName'))]"
+        "[concat('Microsoft.Compute/availabilitySets/',variables('TfsAvailabilitySetName'))]"
       ],
       "properties": {
         "hardwareProfile": {
           "vmSize": "[parameters('vmSize')]"
         },
         "availabilitySet": {
-          "id": "[resourceId('Microsoft.Compute/availabilitySets',variables('TfsAvailabilitySetName'))"
+          "id": "[resourceId('Microsoft.Compute/availabilitySets/',variables('TfsAvailabilitySetName'))]"
         },
         "osProfile": {
           "computerName": "[variables('vmName')]",
@@ -268,7 +264,7 @@
           "name": "InstallTFSScript",
           "type": "extensions",
           "location": "[resourceGroup().location]",
-          "apiVersion": "2015-06-15",
+          "apiVersion": "[variables('DeployLocation').apiVersion]",
           "dependsOn": [
             "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
           ],
@@ -290,19 +286,19 @@
         }
       ]
     },
-      {
-          "name": "[variables('TfsAvailabilitySetName')]",
-          "type": "Microsoft.Compute/availabilitySets",
-          "location": "[resourceGroup().location]",
-          "apiVersion": "2015-06-15",
-          "dependsOn": [ ],
-          "tags": {
-              "displayName": "TfsAvailabilitySet"
-          },
-          "properties": {
-              "platformUpdateDomainCount": 1,
-              "platformFaultDomainCount": 1
-          }
+    {
+      "name": "[variables('TfsAvailabilitySetName')]",
+      "type": "Microsoft.Compute/availabilitySets",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[variables('DeployLocation').apiVersion]",
+      "dependsOn": [],
+      "tags": {
+        "displayName": "TfsAvailabilitySet"
+      },
+      "properties": {
+        "platformUpdateDomainCount": 1,
+        "platformFaultDomainCount": 1
       }
+    }
   ]
 }
