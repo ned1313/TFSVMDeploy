@@ -79,14 +79,21 @@
     "apiVersion": "2015-06-15",
     "InstallTFSScriptScriptFolder": "CustomScripts",
     "InstallTFSScriptScriptFileName": "InstallTFSScript.ps1",
-    "TfsSecurityGroup": "Tfssg",
-    "TfsAvailabilitySetName": "TfsAvailabilitySet"
+    "TfsSecurityGroup": "tfssg",
+    "TfsAvailabilitySetName": "TfsAvailabilitySet",
+    "DeployAzure": {
+      "apiVersion": "2015-06-15"
+    },
+    " DeployAzureStack": {
+      "apiVersion": "2015-05-01-preview"
+    },
+    "DeployLocation": "[concat('Deploy',parameters('DeployLocation'))]"
   },
   "resources": [
     {
       "type": "Microsoft.Storage/storageAccounts",
       "name": "[variables('storageAccountName')]",
-      "apiVersion": "[variables('apiVersion')]",
+      "apiVersion": "[variables('DeployLocation').apiVersion]",
       "location": "[resourceGroup().location]",
       "properties": {
         "accountType": "[variables('storageAccountType')]"
