@@ -72,3 +72,6 @@ do{Wait-Event -Timeout 5; $proc = Get-Process -Name "Tfs2015.3" -ErrorAction Sil
 cd "$installPath\Tools"
 
 .\tfsconfig unattend /configure /type:basic
+
+#Enable public access of TFS site
+Get-NetFirewallRule -DisplayName "Team Foundation Server:8080" | Set-NetFirewallRule -Profile Any
