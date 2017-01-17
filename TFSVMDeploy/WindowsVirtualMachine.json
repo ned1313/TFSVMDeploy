@@ -80,7 +80,7 @@
     "DeployAzure": {
       "apiVersion": "2015-06-15"
     },
-    " DeployAzureStack": {
+    "DeployAzureStack": {
       "apiVersion": "2015-05-01-preview"
     },
     "DeployLocation": "[variables(concat('Deploy',parameters('DeployLocation')))]"
