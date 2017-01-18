@@ -58,7 +58,7 @@
       }
     },
     "FileContainerSASToken": {
-      "type": "string",
+      "type": "securestring",
       "metadata": {
         "description": "SAS Token for install file container"
       }

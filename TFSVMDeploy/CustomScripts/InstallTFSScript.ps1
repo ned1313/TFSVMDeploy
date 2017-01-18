@@ -7,11 +7,11 @@ param(
 #let's set some variables
 $installPath = "F:\Program Files\Microsoft Team Foundation Server 14.0"
 
-$isoURL = "$FileContainerURL/en_team_foundation_server_2015_update_3_x86_x64_dvd_8945842.iso?$FileContainerSASToken"
+$isoFileName = "en_team_foundation_server_2015_update_3_x86_x64_dvd_8945842.iso"
 
-$VSCisoURL = "$FileContainerURL/vs2015.3.com_enu.iso?$FileContainerSASToken"
+$VSCisoFileName = "vs2015.3.com_enu.iso"
 
-$VSCAdminURL = "$FileContainerURL/AdminDeployment.xml?$FileContainerSASToken"
+$VSCAdminFileName = "AdminDeployment.xml"
 
 $dest = "F:\"
 
@@ -39,11 +39,13 @@ function Disable-UserAccessControl {
 function Copy-AzureBlob {
 	param(
 		[string] $URL,
+		[string] $SASToken,
+		[string] $FileName,
 		[string] $destPath
 	)
-	Start-BitsTransfer -Source $URL -Destination $destPath
-	$file = Get-ChildItem -Path $destPath -Filter ($URL.Split("/") | select -Last 1)
-	return $file
+	$URI = "$URL/" + $FileName + "?$SASToken"
+	Invoke-WebRequest -Uri $URI -Destination "$destPath\$FileName"
+	return "$destPath\$FileName"
 }
 
 #Get the data disk prepared
@@ -63,14 +65,14 @@ mkdir $installPath
 Disable-InternetExplorerESC
 
 #Get the files to install TFS and VSC 2015
-$isoFile = Copy-AzureBlob -URL $isoURL -destPath $dest
+$isoFile = Copy-AzureBlob -URL $FileContainerURL -SASToken $FileContainerSASToken -FileName $isoFileName -destPath $dest
 
-$VSCisoFile = Copy-AzureBlob -URL $VSCisoURL -destPath $dest
+$VSCisoFile = Copy-AzureBlob -URL $FileContainerURL -SASToken $FileContainerSASToken -FileName $VSCisoFileName -destPath $dest
 
-$VSCAdminFile = Copy-AzureBlob -URL $VSCAdminURL -destPath $dest
+$VSCAdminFile = Copy-AzureBlob -URL $FileContainerURL -SASToken $FileContainerSASToken -FileName $VSCAdminFileName -destPath $dest
 
 #Mount the TFS ISO to get to the installers and retrieve the mount point
-Mount-DiskImage -ImagePath $isoFile.FullName -PassThru -ov mount
+Mount-DiskImage -ImagePath $isoFile -PassThru -ov mount
  
 $mount = ($mount | Get-Volume).DriveLetter + ":"
 
@@ -89,16 +91,16 @@ cd "$installPath\Tools"
 #Enable public access of TFS site
 Get-NetFirewallRule -DisplayName "Team Foundation Server:8080" | Set-NetFirewallRule -Profile Any
 
-Dismount-DiskImage -ImagePath $isoFile.FullName
+Dismount-DiskImage -ImagePath $isoFile
 
 #Mount the VS Community ISO to get to the installers and retrieve the mount point
-Mount-DiskImage -ImagePath $VSCisoFile.FullName -PassThru -ov mount
+Mount-DiskImage -ImagePath $VSCisoFile -PassThru -ov mount
  
 $mount = ($mount | Get-Volume).DriveLetter + ":"
 
 cd $mount
 
-.\vs_community.exe /adminfile $VSCAdminFile.FullName /quiet /norestart
+.\vs_community.exe /adminfile $VSCAdminFile /quiet /norestart
 
 do{Wait-Event -Timeout 5; $proc = Get-Process -Name "vs_community" -ErrorAction SilentlyContinue; Write-Output "VS 2015 process still running"}while($proc)
 
@@ -107,3 +109,5 @@ mkdir $dest\Agent
 cd "$installPath\Build\Agent"
 
 .\VsoAgent.exe /Configure /RunningAsService /ServerUrl:http://localhost:8080/tfs /WorkFolder:$dest\Agent\_work /StartMode:Automatic /Name:Agent-Default /PoolName:default /WindowsServiceLogonAccount:"NT AUTHORITY\LOCAL SERVICE"
+
+Dismount-DiskImage -ImagePath $VSCisoFile

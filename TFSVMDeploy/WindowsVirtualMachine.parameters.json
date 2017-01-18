@@ -7,6 +7,9 @@
         },
         "dnsLabelPrefix": {
             "value": "tfs"
+        },
+        "FileContainerURL": {
+            "value": "https://nbinstallers.blob.core.windows.net/tfs"
         }
     }
 }
