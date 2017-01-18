@@ -50,6 +50,18 @@
       "metadata": {
         "description": "Deploy to Azure or AzureStack"
       }
+    },
+    "FileContainerURL": {
+      "type": "string",
+      "metadata": {
+        "description": "URL of container with install files"
+      }
+    },
+    "FileContainerSASToken": {
+      "type": "string",
+      "metadata": {
+        "description": "SAS Token for install file container"
+      }
     }
   },
   "variables": {
@@ -280,7 +292,7 @@
               "fileUris": [
                 "[concat(parameters('_artifactsLocation'), '/', variables('InstallTFSScriptScriptFolder'), '/', variables('InstallTFSScriptScriptFileName'), parameters('_artifactsLocationSasToken'))]"
               ],
-              "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File ', variables('InstallTFSScriptScriptFolder'), '/', variables('InstallTFSScriptScriptFileName'))]"
+              "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File ', variables('InstallTFSScriptScriptFolder'), '/', variables('InstallTFSScriptScriptFileName'),' -FileContainerURL ', parameters('FileContainerURL'),' -FileContainerSASToken ', parameters('FileContainerSASToken'))]"
             }
           }
         }

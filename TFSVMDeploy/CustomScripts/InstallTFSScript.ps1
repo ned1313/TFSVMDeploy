@@ -1,12 +1,17 @@
 <# Custom Script for Windows #>
+param(
+ [string] $FileContainerURL,
+ [string] $FileContainerSASToken
+)
+
 #let's set some variables
 $installPath = "F:\Program Files\Microsoft Team Foundation Server 14.0"
 
-$isoURL = "https://nbinstallers.blob.core.windows.net/tfs/en_team_foundation_server_2015_update_3_x86_x64_dvd_8945842.iso"
+$isoURL = "$FileContainerURL/en_team_foundation_server_2015_update_3_x86_x64_dvd_8945842.iso?$FileContainerSASToken"
 
-$VSCisoURL = "https://nbinstallers.blob.core.windows.net/tfs/vs2015.3.com_enu.iso"
+$VSCisoURL = "$FileContainerURL/vs2015.3.com_enu.iso?$FileContainerSASToken"
 
-$VSCAdminURL = "https://nbinstallers.blob.core.windows.net/tfs/AdminDeployment.xml"
+$VSCAdminURL = "$FileContainerURL/AdminDeployment.xml?$FileContainerSASToken"
 
 $dest = "F:\"
 
