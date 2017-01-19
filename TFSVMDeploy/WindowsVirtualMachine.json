@@ -292,7 +292,7 @@
               "fileUris": [
                 "[concat(parameters('_artifactsLocation'), '/', variables('InstallTFSScriptScriptFolder'), '/', variables('InstallTFSScriptScriptFileName'), parameters('_artifactsLocationSasToken'))]"
               ],
-              "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File ', variables('InstallTFSScriptScriptFolder'), '/', variables('InstallTFSScriptScriptFileName'),' -FileContainerURL ', parameters('FileContainerURL'),' -FileContainerSASToken ', parameters('FileContainerSASToken'))]"
+              "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File ', variables('InstallTFSScriptScriptFolder'), '/', variables('InstallTFSScriptScriptFileName'),' -FileContainerURL ', parameters('FileContainerURL'),' -FileContainerSASToken \"', parameters('FileContainerSASToken'),'\"')]"
             }
           }
         }
