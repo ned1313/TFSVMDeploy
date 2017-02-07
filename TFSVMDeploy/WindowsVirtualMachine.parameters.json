@@ -7,6 +7,9 @@
         },
         "dnsLabelPrefix": {
             "value": "tfs"
+        },
+        "DeployLocation": {
+            "value": "AzureStack"
         }
     }
 }

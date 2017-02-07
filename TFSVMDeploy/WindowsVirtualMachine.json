@@ -81,7 +81,7 @@
       "apiVersion": "2015-06-15"
     },
     "DeployAzureStack": {
-      "apiVersion": "2015-05-01-preview"
+      "apiVersion": "2015-06-15"
     },
     "DeployLocation": "[variables(concat('Deploy',parameters('DeployLocation')))]"
   },
