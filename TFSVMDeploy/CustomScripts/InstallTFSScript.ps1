@@ -1,22 +1,31 @@
 <# Custom Script for Windows #>
 param(
  [string] $FileContainerURL,
- [string] $FileContainerSASToken
+ [string] $FileContainerSASToken,
+ [int] $InstallStep = 0
 )
 
+$FileContainerSASToken = "sv=2015-04-05&sr=c&sig=y5cfpbNbhUT3TFGatA4X8AmUpoD5DvH6uSsJClGM0XA%3D&se=
+2017-04-05T19%3A21%3A25Z&sp=rl"
+
+$FileContainerURL = "https://nbinstallers.blob.core.windows.net/tfs"
+
 Write-Output "File Container URL set to $FileContainerURL"
-Write-Output "File Containre SAS Token set to $FileContainerSASToken"
+Write-Output "File Container SAS Token set to $FileContainerSASToken"
 
 #let's set some variables
 $installPath = "F:\Program Files\Microsoft Team Foundation Server 14.0"
 
 $isoFileName = "en_team_foundation_server_2015_update_3_x86_x64_dvd_8945842.iso"
 
-$VSCisoFileName = "vs2015.3.com_enu.iso"
-
-$VSCAdminFileName = "AdminDeployment.xml"
-
 $dest = "F:\"
+
+$ScheduledTaskName = "InstallTFSScript.ps1"
+
+$task = Get-ScheduledTask -TaskName $ScheduledTaskName -ErrorAction SilentlyContinue
+if($task){
+	Unregister-ScheduledTask -TaskName $ScheduledTaskName
+}
 
 Write-Output "Loading functions"
 
@@ -54,86 +63,143 @@ function Copy-AzureBlob {
 	return "$destPath\$FileName"
 }
 
-Write-Output "Preparing Disks"
+function PrepareDisks {
+	Write-Output "Preparing Disks"
 
-#Get the data disk prepared
-Get-Disk |
+	#Get the data disk prepared
+	Get-Disk |
 
-Where partitionstyle -eq ‘raw’ |
+	Where partitionstyle -eq ‘raw’ |
 
-Initialize-Disk -PartitionStyle GPT -PassThru |
+	Initialize-Disk -PartitionStyle GPT -PassThru |
 
-New-Partition -DriveLetter F -UseMaximumSize |
+	New-Partition -DriveLetter F -UseMaximumSize |
 
-Format-Volume -FileSystem NTFS -NewFileSystemLabel “TFSInstall” -Confirm:$false
+	Format-Volume -FileSystem NTFS -NewFileSystemLabel “TFSInstall” -Confirm:$false
+}
 
-Write-Output "Create install path and disable ESC"
-mkdir $installPath
+function PrepareSystem{
+	Write-Output "Create install path and disable ESC"
+	mkdir $installPath
 
-#Turn off the pesky IE ESC, optionally UAC can be disabled too
-Disable-InternetExplorerESC
+	#Turn off the pesky IE ESC, optionally UAC can be disabled too
+	Disable-InternetExplorerESC
 
-#Get the files to install TFS and VSC 2015
-$isoFile = Copy-AzureBlob -URL $FileContainerURL -SASToken $FileContainerSASToken -FileName $isoFileName -destPath $dest
+}
 
-Write-Output "TFS ISO set to $isoFile"
+function CopyFiles {
+	#Get the files to install TFS and VSC 2015
+	$isoFile = Copy-AzureBlob -URL $FileContainerURL -SASToken $FileContainerSASToken -FileName $isoFileName -destPath $dest
 
-$VSCisoFile = Copy-AzureBlob -URL $FileContainerURL -SASToken $FileContainerSASToken -FileName $VSCisoFileName -destPath $dest
+	Write-Output "TFS ISO set to $isoFile"
 
-Write-Output "VSC ISO set to $VSCisoFile"
+}
 
-$VSCAdminFile = Copy-AzureBlob -URL $FileContainerURL -SASToken $FileContainerSASToken -FileName $VSCAdminFileName -destPath $dest
+function InstallTFS {
+	#Mount the TFS ISO to get to the installers and retrieve the mount point
+	Write-Output "Mounting TFS ISO to perform installation"
 
-Write-Output "VSC admin file set to $VSCAdminFile"
-
-#Mount the TFS ISO to get to the installers and retrieve the mount point
-Write-Output "Mounting TFS ISO to perform installation"
-
-Mount-DiskImage -ImagePath $isoFile -PassThru -ov mount
+	Mount-DiskImage -ImagePath $isoFile -PassThru -ov mount
  
-$mount = ($mount | Get-Volume).DriveLetter + ":"
+	$mount = ($mount | Get-Volume).DriveLetter + ":"
 
-cd $mount
+	cd $mount
 
-#Run the TFS installer and wait until the process completes
-Write-Output "Running TFS Installer"
-.\Tfs2015.3.exe /Full /Quiet /CustomInstallPath $installPath
+	#Run the TFS installer and wait until the process completes
+	Write-Output "Running TFS Installer"
+	.\Tfs2015.3.exe /Full /Quiet /CustomInstallPath $installPath
 
-do{Wait-Event -Timeout 5; $proc = Get-Process -Name "Tfs2015.3" -ErrorAction SilentlyContinue; Write-Output "TFS process still running"}while($proc)
+	do{Wait-Event -Timeout 5; $proc = Get-Process -Name "Tfs2015.3" -ErrorAction SilentlyContinue; Write-Output "TFS process still running"}while($proc)
 
-#Run the basic unattended install for TFS
-cd "$installPath\Tools"
+	#Run the basic unattended install for TFS
+	cd "$installPath\Tools"
 
-Write-Output "Running TFS configuration"
-.\tfsconfig unattend /configure /type:basic
+	Write-Output "Running TFS configuration"
+	.\tfsconfig unattend /configure /type:basic
 
-Write-Output "Enable firewall rule"
-#Enable public access of TFS site
-Get-NetFirewallRule -DisplayName "Team Foundation Server:8080" | Set-NetFirewallRule -Profile Any
+	Write-Output "Enable firewall rule"
+	#Enable public access of TFS site
+	Get-NetFirewallRule -DisplayName "Team Foundation Server:8080" | Set-NetFirewallRule -Profile Any
 
-Write-Output "Dismount TFS ISO"
-Dismount-DiskImage -ImagePath $isoFile
+	Write-Output "Dismount TFS ISO"
+	Dismount-DiskImage -ImagePath $isoFile
+}
 
-#Mount the VS Community ISO to get to the installers and retrieve the mount point
-Write-Output "Mounting VSC ISO to perform installation"
-Mount-DiskImage -ImagePath $VSCisoFile -PassThru -ov mount
- 
-$mount = ($mount | Get-Volume).DriveLetter + ":"
+function InstallWebPi {
+	#Get the WebPlatformInstaller from Microsoft
+	Invoke-WebRequest -Uri http://go.microsoft.com/fwlink/?LinkId=255386 -OutFile $dest\wpilauncher.exe
 
-cd $mount
+	cd $dest
 
-Write-Output "Running VSC Installer"
-.\vs_community.exe /adminfile $VSCAdminFile /quiet /norestart
+	.\wpilauncher.exe
 
-do{Wait-Event -Timeout 5; $proc = Get-Process -Name "vs_community" -ErrorAction SilentlyContinue; Write-Output "VS 2015 process still running"}while($proc)
+	while(-not (Test-Path 'C:\Program Files\Microsoft\Web Platform Installer\WebpiCmd.exe')){
+		Wait-Event -Timeout 5
+	}
 
-mkdir $dest\Agent
+	$proc = Get-Process -Name "WebPlatformInstaller" -ErrorAction SilentlyContinue
+	if($proc){
+		Stop-Process -Name "WebPlatformInstaller" -Force
+	}
 
-cd "$installPath\Build\Agent"
+}
 
-Write-Output "Running Build Agent installation"
+function InstallVSC {
+	& 'C:\Program Files\Microsoft\Web Platform Installer\WebpiCmd.exe' /Install /Products:"VS2015CommunityAzurePack.2.9" /AcceptEULA
+}
 
- .\VsoAgent.exe /Configure /RunningAsService /ServerUrl:http://localhost:8080/tfs /WorkFolder:$dest\Agent\_work /StartMode:Automatic /Name:Agent-Default /PoolName:default /WindowsServiceLogonAccount:"NT AUTHORITY\LOCAL SERVICE" /WindowsServiceLogonPassword:"password" /Force
+function InstallWMF5 {
+	Invoke-WebRequest -Uri http://go.microsoft.com/fwlink/?LinkId=717507 -OutFile $dest\Win8.1AndW2K12R2-KB3134758-x64.msu
+	wusa.exe $dest\Win8.1AndW2K12R2-KB3134758-x64.msu /quiet 
+}
 
-Write-Output "Dismount VSC ISO"
-Dismount-DiskImage -ImagePath $VSCisoFile
+function InstallAzurePowerShell {
+
+ # To install the module for all users on your computer. Run this command in an elevated PowerShell session
+ Get-Module -ListAvailable | where-Object {$_.Name -like “Azure*”} | Uninstall-Module
+ Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+ Install-Module -Name AzureRM -RequiredVersion 1.2.8 -Force
+ Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+
+}
+
+function CreateTFSBuildAgent{
+	mkdir $dest\Agent
+
+	cd "$installPath\Build\Agent"
+
+	Write-Output "Running Build Agent installation"
+
+	 .\VsoAgent.exe /Configure /RunningAsService /ServerUrl:http://localhost:8080/tfs /WorkFolder:$dest\Agent\_work /StartMode:Automatic /Name:Agent-Default /PoolName:default /WindowsServiceLogonAccount:"NT AUTHORITY\LOCAL SERVICE" /WindowsServiceLogonPassword:"password" /Force
+
+}
+
+function CreateResumeTask {
+	param(
+		[int] $InstallStep
+	)
+	$trigger = New-ScheduledTaskTrigger -AtStartup -RandomDelay "00:01:00"
+	$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NonInteractive -NoProfile -File $PSCommandPath -InstallStep $InstallStep" -WorkingDirectory $PSScriptRoot
+	$settings = New-ScheduledTaskSettingsSet
+	$task = New-ScheduledTask -Action $action -Description "InstallTFSScript.ps1" -Settings $settings -Trigger $trigger
+	Register-ScheduledTask "InstallTFSScript.ps1" -InputObject $task -User System 
+
+}
+
+if($InstallStep -eq 1){
+	PrepareDisks
+	PrepareSystem
+	CopyFiles
+	InstallTFS
+	InstallWebPi
+	InstallVSC
+	$InstallStep++
+	CreateResumeTask -InstallStep $InstallStep
+	InstallWMF5
+}
+
+if($InstallStep -eq 2){
+	InstallAzurePowerShell
+	CreateTFSBuildAgent
+	$InstallStep++
+}
