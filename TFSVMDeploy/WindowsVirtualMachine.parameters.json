@@ -8,6 +8,9 @@
         "dnsLabelPrefix": {
             "value": "tfs"
         },
+        "DeployLocation": {
+            "value": "AzureStack"
+        },
         "FileContainerURL": {
             "value": "https://nbinstallers.blob.core.windows.net/tfs"
         }
